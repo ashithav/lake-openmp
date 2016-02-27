@@ -1,0 +1,64 @@
+README.txt
+==========
+
+Add the following acc pragma:
+#pragma acc kernels loop 
+for Loop1 and Loop2
+
+The execution time is: 
+Serial:  255.481399 seconds
+openACC: 99.566646 seconds
+
+where Serial is the time taken by the initial version of the simulator,
+on CPU with one thread. 
+
+openACC hasn't improved the performance much even after running on GPU. 
+
+Setting up the environment variable PGI_ACC_TIME=1, the timing can be 
+observed as follows: 
+
+Accelerato Kernel Timing data
+/home/temp1007/HW3/Q2/lake-openmp/lake.c
+  run_sim_openmp  NVIDIA  devicenum=0
+    time(us): 48,641,150
+    306: compute region reached 4097 times
+        306: data copyin reached 12291 times
+             device time(us): total=17,872,999 max=1,546 min=1,452 avg=1,454
+        311: kernel launched 4097 times
+            grid: [16x256]  block: [64x4]
+             device time(us): total=2,266,495 max=662 min=525 avg=553
+            elapsed time(us): total=2,301,569 max=672 min=533 avg=561
+        334: data copyout reached 4097 times
+             device time(us): total=5,230,968 max=1,306 min=1,273 avg=1,276
+    334: compute region reached 4097 times
+        334: data copyin reached 8194 times
+             device time(us): total=11,916,187 max=1,511 min=1,452 avg=1,454
+        339: kernel launched 4097 times
+            grid: [8x1024]  block: [128]
+             device time(us): total=898,194 max=273 min=218 avg=219
+            elapsed time(us): total=934,447 max=483 min=225 avg=228
+        347: data copyout reached 8194 times
+             device time(us): total=10,456,307 max=1,331 min=1,273 avg=1,276
+
+For every iteration of the while loop, data (uo,uc,pebs) is transferred between 
+CPU and GPU as seen from data copyin, data copyout count. These data transfers 
+are costly and take time as seen above. 
+
+Since uo, uc is updated after each iteration, the data is copied from
+GPU to cpu and then updated back to GPU. This can be avoided. The uo, uc, pebs, 
+and un is copied once to the GPU before the first iteration. 
+
+Since the result we need is un[], only un[] is copied back once after the last 
+iteration.
+
+To indicate that to the compiler I added this pragma before the while loop
+#pragma acc data copyin(uo,uc,pebs), copy(un)
+
+Now the total no. of copyin is reduced to 4 and 
+the total no. of copyout is reduced to 1.
+
+With reduced data transfers the execution time is as follows:
+
+Serial:  258.897981 seconds
+openACC: 3.739964 seconds
+

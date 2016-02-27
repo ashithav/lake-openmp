@@ -21,6 +21,7 @@ void print_heatmap(char *filename, double *u, int n, double h);
 void init_pebbles(double *p, int pn, int n);
 
 void run_sim(double *u, double *u0, double *u1, double *pebbles, int n, double h, double end_time, int nthreads);
+void run_sim_openmp(double *u, double *u0, double *u1, double *pebbles, int n, double h, double end_time, int nthreads);
 
 void error_u(double *uerr, double *avgerr, double *ua, double *ub, int n);
 

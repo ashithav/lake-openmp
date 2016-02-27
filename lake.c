@@ -31,6 +31,7 @@
 #include <string.h>
 #include <math.h>
 #include <sys/time.h>
+#include <omp.h>
 
 #include "./lake.h"
 #include "./lake_util.h"
@@ -116,7 +117,7 @@ int main(int argc, char *argv[])
 #endif
 
   print_heatmap("lake_i.dat", u_i0, npoints, h);
-
+#if 1
   /* time, run the simulation */
 #ifdef __DEBUG
   lake_log("beginning simulation\n");
@@ -136,6 +137,22 @@ int main(int argc, char *argv[])
 #endif
 
   print_heatmap("lake_f.dat", u_cpu, npoints, h);
+#endif
+
+  gettimeofday(&cpu_start, NULL);
+  run_sim_openmp(u_cpu, u_i0, u_i1, pebs, npoints, h, end_time, nthreads);
+  gettimeofday(&cpu_end, NULL);
+
+  elapsed_cpu = ((cpu_end.tv_sec + cpu_end.tv_usec * 1e-6)-(
+                  cpu_start.tv_sec + cpu_start.tv_usec * 1e-6));
+  lake_log("\nParallelelized version took %f seconds\n", elapsed_cpu);
+
+  /* print the final configuration */
+#ifdef __DEBUG
+  lake_log("printing final configuration file\n");
+#endif
+
+  print_heatmap("lake_p.dat", u_cpu, npoints, h);
 
 #ifdef __DEBUG
   lake_log("freeing memory\n");
@@ -246,6 +263,95 @@ void run_sim(double *u, double *u0, double *u1, double *pebbles, int n, double h
   /* cpy the last updated to the output array */
   memcpy(u, un, sizeof(double) * n * n);
 }
+
+void run_sim_openmp(double *u, double *u0, double *u1, double *pebbles, int n, double h, double end_time, int nthreads)
+{
+  /* arrays used in the calculation */
+  double un[n][n], uc[n][n], uo[n][n], pebs[n][n];
+  /* time vars */
+  double t, dt;
+  int i, j;
+
+  /* allocate the calculation arrays */
+
+  /* put the inital configurations into the calculation arrays */
+  memcpy(uo, u0, sizeof(double) * n * n);
+  memcpy(uc, u1, sizeof(double) * n * n);
+  memcpy(pebs, pebbles, sizeof(double) * n * n);
+
+  /* start at t=0.0 */
+  t = 0.;
+  /* this is probably not ideal.  In principal, we should
+   * keep the time-step at the size determined by the 
+   * CFL condition
+   * 
+   * dt = h / vel_max
+   *
+   * where vel_max is the maximum velocity in the current
+   * model.  The condition dt = h/2. should suffice, but 
+   * be aware the possibility exists for madness and mayhem */
+  dt = h / 2.;
+
+  /* loop until time >= end_time */
+  omp_set_num_threads(nthreads);
+
+#pragma acc data copyin(uo,uc,pebs), copy(un)
+  while(1)
+  {
+
+    /* run a central finite differencing scheme to solve
+     * the wave equation in 2D */
+#pragma omp parallel for private(i,j) schedule(dynamic,128) 
+//#pragma omp parallel for private(i,j) schedule(static) 
+#pragma acc kernels loop
+    for( i = 0; i < n; i++)
+    {
+//#pragma omp parallel for private(j) firstprivate(i) schedule(dynamic,128)
+//#pragma omp parallel for private(j) firstprivate(i) schedule(static)
+      for( j = 0; j < n; j++)
+      {
+        /* impose the u|_s = 0 boundary conditions */
+        if( i == 0 || i == n - 1 || j == 0 || j == n - 1)
+        {
+          un[i][j] = 0.;
+        }
+
+        /* otherwise do the FD scheme */
+        else
+        {
+
+ 	  un[i][j] = 2*uc[i][j] - uo[i][j] + VSQR *(dt * dt) *((uc[i][j-1] + uc[i][j+1] +
+                    uc[i+1][j] + uc[i-1][j] + 0.25 * (uc[i-1][j-1] + uc[i+1][j-1]+ uc[i-1][j+1] + uc[i+1][j+1])
+                       - 5 * uc[i][j])/(h * h) + f(pebs[i][j],t));
+
+        }
+      }
+    }
+
+    /* update the calculation arrays for the next time step */
+#pragma omp parallel for private(i,j) default(shared) schedule(dynamic,128)
+//#pragma omp parallel for private(i,j) default(shared) schedule(static)
+#pragma acc kernels loop
+    for( i = 0; i < n; i++ )
+    {
+//#pragma omp parallel for private(j) firstprivate(i) default(shared) schedule(dynamic,128)
+//#pragma omp parallel for private(j) firstprivate(i) default(shared) schedule(static)
+      for ( j = 0; j < n; j++ )
+      {
+        uo[i][j] = uc[i][j];
+        uc[i][j] = un[i][j];
+      }
+    }    
+    //memcpy(uo,uc,sizeof(double)*n*n);
+    //memcpy(uc,un,sizeof(double)*n*n);
+
+    /* have we reached the end? */
+    if(!tpdt(&t,dt,end_time)) break;
+  }
+  /* cpy the last updated to the output array */
+  memcpy(u, un, sizeof(double) * n * n);
+}
+
 
 /*****************************
 * init_pebbles

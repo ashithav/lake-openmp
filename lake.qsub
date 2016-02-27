@@ -11,7 +11,7 @@
 
 #PBS -N lake_acc
 #PBS -l nodes=1,walltime=01:00:00
-#PBS -q default
+#PBS -q cuda
 #PBS -o lake_acc.out
 #PBS -e lake_acc.err
 
@@ -22,6 +22,9 @@ echo PBS JOB id is $PBS_JOBID
 echo PBS_NODEFILE is $PBS_NODEFILE
 echo PBS_QUEUE is $PBS_QUEUE
 NPROCS=`wc -l < $PBS_NODEFILE`
+WRKDIR=$HOME/HW3/Q2/lake-openmp
+LOG=$WRKDIR/lake.log
+ROOT=`head -n 1 $PBS_NODEFILE`
 echo
 
 hostname
@@ -30,15 +33,17 @@ echo
 cat $PBS_NODEFILE
 echo NPROCS: $NPROCS
 
-WRKDIR=$HOME/hw3/lake
 
-GRIDSZ=256
-NPEBS=2
-STIME=1.0
-NTHREADS=1
+GRIDSZ=1024
+NPEBS=4
+STIME=2.0
+NTHREADS=16
 
 echo Running LAKE
 
 $WRKDIR/lake $GRIDSZ $NPEBS $STIME $NTHREADS
+echo "$WRKDIR/lake $GRIDSZ $NPEBS $STIME $NTHREADS"
 
 echo LAKE completed without incident.  See logfile for run details.
+#echo "scp $ROOT$LOG lake.log"
+#scp $ROOT$LOG lake.log
