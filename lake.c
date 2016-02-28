@@ -31,7 +31,11 @@
 #include <string.h>
 #include <math.h>
 #include <sys/time.h>
+#ifdef _OPENMP
 #include <omp.h>
+#else
+#include <openacc.h>
+#endif
 
 #include "./lake.h"
 #include "./lake_util.h"
@@ -301,13 +305,15 @@ void run_sim_openmp(double *u, double *u0, double *u1, double *pebbles, int n, d
 
     /* run a central finite differencing scheme to solve
      * the wave equation in 2D */
-#pragma omp parallel for private(i,j) schedule(dynamic,128) 
+//#pragma omp parallel for private(i,j) schedule(dynamic,64) collapse(2)
 //#pragma omp parallel for private(i,j) schedule(static) 
-#pragma acc kernels loop
+#pragma acc kernels loop gang(16), vector(16)
+//#pragma acc kernels loop
     for( i = 0; i < n; i++)
     {
-//#pragma omp parallel for private(j) firstprivate(i) schedule(dynamic,128)
+#pragma omp parallel for private(j) firstprivate(i) schedule(dynamic,64)
 //#pragma omp parallel for private(j) firstprivate(i) schedule(static)
+#pragma acc loop gang(32) vector(16) 
       for( j = 0; j < n; j++)
       {
         /* impose the u|_s = 0 boundary conditions */
@@ -319,6 +325,7 @@ void run_sim_openmp(double *u, double *u0, double *u1, double *pebbles, int n, d
         /* otherwise do the FD scheme */
         else
         {
+#pragma acc cache(uc[i-1:i+1][j-1:j+1])
 
  	  un[i][j] = 2*uc[i][j] - uo[i][j] + VSQR *(dt * dt) *((uc[i][j-1] + uc[i][j+1] +
                     uc[i+1][j] + uc[i-1][j] + 0.25 * (uc[i-1][j-1] + uc[i+1][j-1]+ uc[i-1][j+1] + uc[i+1][j+1])
@@ -329,21 +336,21 @@ void run_sim_openmp(double *u, double *u0, double *u1, double *pebbles, int n, d
     }
 
     /* update the calculation arrays for the next time step */
-#pragma omp parallel for private(i,j) default(shared) schedule(dynamic,128)
+//#pragma omp parallel for private(i,j) default(shared) schedule(dynamic,64)
 //#pragma omp parallel for private(i,j) default(shared) schedule(static)
-#pragma acc kernels loop
+#pragma acc kernels loop gang(16), vector(16)
+//#pragma acc kernels loop
     for( i = 0; i < n; i++ )
     {
-//#pragma omp parallel for private(j) firstprivate(i) default(shared) schedule(dynamic,128)
+//#pragma omp parallel for private(j) firstprivate(i) default(shared) schedule(dynamic,64)
 //#pragma omp parallel for private(j) firstprivate(i) default(shared) schedule(static)
+#pragma acc loop gang(32), vector(16) 
       for ( j = 0; j < n; j++ )
       {
         uo[i][j] = uc[i][j];
         uc[i][j] = un[i][j];
       }
     }    
-    //memcpy(uo,uc,sizeof(double)*n*n);
-    //memcpy(uc,un,sizeof(double)*n*n);
 
     /* have we reached the end? */
     if(!tpdt(&t,dt,end_time)) break;

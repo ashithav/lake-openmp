@@ -6,6 +6,7 @@ Add the following acc pragma:
 for Loop1 and Loop2
 
 The execution time is: 
+./lake 1024 4 2.0 16
 Serial:  255.481399 seconds
 openACC: 99.566646 seconds
 
@@ -40,6 +41,8 @@ Accelerato Kernel Timing data
         347: data copyout reached 8194 times
              device time(us): total=10,456,307 max=1,331 min=1,273 avg=1,276
 
+Reduce Data transfers:
+----------------------
 For every iteration of the while loop, data (uo,uc,pebs) is transferred between 
 CPU and GPU as seen from data copyin, data copyout count. These data transfers 
 are costly and take time as seen above. 
@@ -58,7 +61,70 @@ Now the total no. of copyin is reduced to 4 and
 the total no. of copyout is reduced to 1.
 
 With reduced data transfers the execution time is as follows:
-
+./lake 1024 4 2.0 16
 Serial:  258.897981 seconds
 openACC: 3.739964 seconds
+
+Reducing data transfers improved the performance the most.
+
+Adjust work per thread
+----------------------
+The default compiler options set the grid dimentions and block dimensions such 
+that the total number of threads will be equal to the total number of iterations.
+In the above ex: 
+number of points = 1024*1024
+For loop1, grid: [16x256]  block: [64x4]
+For loop2, grid: [8x1024]  block: [128]
+
+The grid, block dimensions can be adjusted so that each thread does more than 
+one iteration thus saving time on the amortized cost of setup. But the number of 
+the threads must be large enough to fill the GPU to make use it.
+
+GPUs prefer the no. of threads per block to be  a multiple of 32 for better 
+performance.
+
+Outer loop
+#pragma acc kernels loop gang(16), vector(16)
+Inner loop
+#pragma acc loop gang(32) vector(16) 
+
+This would setup grid: [16x32]  block: [16x16] = 256*256 threads. For any input
+greater than 256, each thread does more than one iteration. 
+
+This optimization did not improve the performance much. 
+
+Cache Data:
+----------
+Data can be cached in shared memory to reduce general access as follows:
+
+#pragma acc cache(uc[i-1:i+1][j-1:j+1])
+
+This optimization improved the performance by a factor of 2.
+
+Various grid sizes with time = 2.000000 and 4 pebbles 
+None- The native acc pragma with no optimization
+O1 - Reduced data transfer
+O2 - Increased work/thread
+O3 - Cached Data
+All - All optimizations
+Grid      time        time         time       time     
+          None         O1         O1+O2       All
+---------------------------------------------------
+128      0.760248   0.449595    4.483760    1.353219 
+256      6.200168   0.538290    4.512954    5.444664 
+512     16.069195   1.948370    0.922911    0.976209 
+1024   148.099918   3.711453    3.723380    6.265354 
+
+Grid=1024 and 4 pebbles with varying time
+Simulation time     execution time
+-----------------------------------
+2.0                 4.242537
+1.8                 5.724502
+1.6                 3.473115  
+1.4                 4.765865
+1.2                 4.293605
+1.0                 3.930076
+
+Performance doesn't vary much with the simulation time.
+
 
