@@ -25,6 +25,10 @@
 *	# threads - 	the number of threads the simulation uses
 *
 **************************************/
+/*
+*Single Author info: 
+*avelayu Ashitha Velayudhan 
+*/
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -305,20 +309,7 @@ void run_sim_openmp(double *u, double *u0, double *u1, double *pebbles, int n, d
 
     /* run a central finite differencing scheme to solve
      * the wave equation in 2D */
-#if 0
-#pragma omp parallel for private(i,j) schedule(static) 
-    for( i = 0; i < n; i++)
-    {
-      for( j = 0; j < n; j++)
-      {
-        if( i == 0 || i == n - 1 || j == 0 || j == n - 1)
-        {
-          un[i][j] = 0.;
-        }
-      }
-    }
-#endif
-  memset(un, 0, sizeof(double) * n * n);
+    memset(un, 0, sizeof(double) * n * n);
 
 
 //#pragma omp parallel for private(i,j) schedule(dynamic,64) collapse(2)
@@ -329,10 +320,11 @@ void run_sim_openmp(double *u, double *u0, double *u1, double *pebbles, int n, d
 //#pragma omp parallel for private(j) firstprivate(i) schedule(dynamic,64)
 //#pragma omp parallel for private(j) firstprivate(i) schedule(static)
 #pragma acc loop gang(32) vector(16) 
-      for( j = 1; j < n-1; j+=4)
+      for( j = 1; j < n-2; j+=2)
       {
 #pragma acc cache(uc[i-1:i+1][j-1:j+1])
 
+      /* Unroll loop twice here*/
  	  un[i][j] = 2*uc[i][j] - uo[i][j] + VSQR *(dt * dt) *((uc[i][j-1] + uc[i][j+1] +
                     uc[i+1][j] + uc[i-1][j] + 0.25 * (uc[i-1][j-1] + uc[i+1][j-1]+ uc[i-1][j+1] + uc[i+1][j+1])
                        - 5 * uc[i][j])/(h * h) + f(pebs[i][j],t));
@@ -340,17 +332,13 @@ void run_sim_openmp(double *u, double *u0, double *u1, double *pebbles, int n, d
  	  un[i][j+1] = 2*uc[i][j+1] - uo[i][j+1] + VSQR *(dt * dt) *((uc[i][j] + uc[i][j+2] +
                     uc[i+1][j+1] + uc[i-1][j+1] + 0.25 * (uc[i-1][j] + uc[i+1][j]+ uc[i-1][j+2] + uc[i+1][j+2])
                        - 5 * uc[i][j+1])/(h * h) + f(pebs[i][j+1],t));
-
- 	  un[i][j+2] = 2*uc[i][j+2] - uo[i][j+2] + VSQR *(dt * dt) *((uc[i][j+1] + uc[i][j+3] +
-                    uc[i+1][j+2] + uc[i-1][j+2] + 0.25 * (uc[i-1][j+1] + uc[i+1][j+1]+ uc[i-1][j+3] + uc[i+1][j+3])
-                       - 5 * uc[i][j+2])/(h * h) + f(pebs[i][j+2],t));
-
- 	  un[i][j+3] = 2*uc[i][j+3] - uo[i][j+3] + VSQR *(dt * dt) *((uc[i][j+2] + uc[i][j+4] +
-                    uc[i+1][j+3] + uc[i-1][j+3] + 0.25 * (uc[i-1][j+2] + uc[i+1][j+2]+ uc[i-1][j+4] + uc[i+1][j+4])
-                       - 5 * uc[i][j+3])/(h * h) + f(pebs[i][j+3],t));
-
-
       }
+      /* We didnt do the last two iterations: n-1,n
+       * Complete the last iteration here
+       * nth iteration is border case that is already covered */
+ 	  un[i][j] = 2*uc[i][j] - uo[i][j] + VSQR *(dt * dt) *((uc[i][j-1] + uc[i][j+1] +
+                    uc[i+1][j] + uc[i-1][j] + 0.25 * (uc[i-1][j-1] + uc[i+1][j-1]+ uc[i-1][j+1] + uc[i+1][j+1])
+                       - 5 * uc[i][j])/(h * h) + f(pebs[i][j],t));
     }
 
     /* update the calculation arrays for the next time step */
@@ -364,6 +352,7 @@ void run_sim_openmp(double *u, double *u0, double *u1, double *pebbles, int n, d
 #pragma acc loop gang(32), vector(16) 
       for ( j = 0; j < n; j+=4 )
       {
+          /* Unroll 4 times*/
         uo[i][j] = uc[i][j];
         uc[i][j] = un[i][j];
         uo[i][j+1] = uc[i][j+1];

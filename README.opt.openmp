@@ -25,6 +25,11 @@ Time: 50.419688 seconds
 
 3. Loop unrolling
 Unroll the loop so that the loop overheads are reduced
-Both Loop1 and Loop2 are unrolled 4 times. 
+Both Loop1 and Loop2 are unrolled. 
 
 Time: 42.923457 seconds
+
+After all optimizations are done: 
+Execution time is 
+Serial:
+OpenMP:

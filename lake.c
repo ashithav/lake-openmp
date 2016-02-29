@@ -25,6 +25,10 @@
 *	# threads - 	the number of threads the simulation uses
 *
 **************************************/
+/*
+*Single Author info: 
+*avelayu Ashitha Velayudhan 
+*/
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -305,13 +309,13 @@ void run_sim_openmp(double *u, double *u0, double *u1, double *pebbles, int n, d
 
     /* run a central finite differencing scheme to solve
      * the wave equation in 2D */
-//#pragma omp parallel for private(i,j) schedule(dynamic,64) collapse(2)
+    /* Set the chunk size as n/nthreads for dynamic scheduling */
+//#pragma omp parallel for private(i,j) schedule(dynamic,n/nthreads) collapse(2)
 //#pragma omp parallel for private(i,j) schedule(static) 
 #pragma acc kernels loop gang(16), vector(16)
-//#pragma acc kernels loop
     for( i = 0; i < n; i++)
     {
-#pragma omp parallel for private(j) firstprivate(i) schedule(dynamic,64)
+//#pragma omp parallel for private(j) firstprivate(i) schedule(dynamic,n/nthreads)
 //#pragma omp parallel for private(j) firstprivate(i) schedule(static)
 #pragma acc loop gang(32) vector(16) 
       for( j = 0; j < n; j++)
@@ -325,6 +329,7 @@ void run_sim_openmp(double *u, double *u0, double *u1, double *pebbles, int n, d
         /* otherwise do the FD scheme */
         else
         {
+            /* fetch data into cache */
 #pragma acc cache(uc[i-1:i+1][j-1:j+1])
 
  	  un[i][j] = 2*uc[i][j] - uo[i][j] + VSQR *(dt * dt) *((uc[i][j-1] + uc[i][j+1] +
@@ -336,13 +341,12 @@ void run_sim_openmp(double *u, double *u0, double *u1, double *pebbles, int n, d
     }
 
     /* update the calculation arrays for the next time step */
-//#pragma omp parallel for private(i,j) default(shared) schedule(dynamic,64)
+#pragma omp parallel for private(i,j) default(shared) schedule(dynamic,n/nthreads) collapse(2)
 //#pragma omp parallel for private(i,j) default(shared) schedule(static)
 #pragma acc kernels loop gang(16), vector(16)
-//#pragma acc kernels loop
     for( i = 0; i < n; i++ )
     {
-//#pragma omp parallel for private(j) firstprivate(i) default(shared) schedule(dynamic,64)
+//#pragma omp parallel for private(j) firstprivate(i) default(shared) schedule(dynamic,n/nthreads)
 //#pragma omp parallel for private(j) firstprivate(i) default(shared) schedule(static)
 #pragma acc loop gang(32), vector(16) 
       for ( j = 0; j < n; j++ )
