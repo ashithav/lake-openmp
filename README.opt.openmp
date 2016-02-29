@@ -31,5 +31,5 @@ Time: 42.923457 seconds
 
 After all optimizations are done: 
 Execution time is 
-Serial:
-OpenMP:
+Serial: 279.972046
+OpenMP: 44.017105
