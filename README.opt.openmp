@@ -1,0 +1,30 @@
+README
+======
+
+To compile the optimized lake_opt.c use Makefile.opt
+#make; make -f Makefile.opt
+
+All execution times are for a grid=1024 pebbles=4, time = 2.0 sec threads=16
+and both outer loops parallelized.
+
+1. Collapse the two loops. 
+Use collapse on the loops to combine the 2 loops together, thus increasinf the 
+work per thread.
+#pragma omp parallel for private(i,j) schedule(dynamic,128) collapse(2)
+Time: 66.788453 sec
+
+2. Split the loop
+A lot of time is spent on waiting on the implicit barrier of the for loops
+since load balancing among threads is poor. The border elements are zero and
+any thread handling border element calculation gets a much lighter load. 
+
+To improve load balancing, the loop can be split so that border and non-border
+elements are handled in two different loops.
+
+Time: 50.419688 seconds
+
+3. Loop unrolling
+Unroll the loop so that the loop overheads are reduced
+Both Loop1 and Loop2 are unrolled 4 times. 
+
+Time: 42.923457 seconds
