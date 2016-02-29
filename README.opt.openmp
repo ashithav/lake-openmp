@@ -8,7 +8,7 @@ All execution times are for a grid=1024 pebbles=4, time = 2.0 sec threads=16
 and both outer loops parallelized.
 
 1. Collapse the two loops. 
-Use collapse on the loops to combine the 2 loops together, thus increasinf the 
+Use collapse on the loops to combine the 2 loops together, thus increasing the 
 work per thread.
 #pragma omp parallel for private(i,j) schedule(dynamic,128) collapse(2)
 Time: 66.788453 sec

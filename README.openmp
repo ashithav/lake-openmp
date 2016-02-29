@@ -4,7 +4,19 @@ README.txt
 *Single Author info: 
 *avelayu Ashitha Velayudhan 
 */
-Execution time for a grid=1024 pebbles=4, time = 2.0 sec threads=16
+Compile
+-------
+Change ACC in Makefile to 
+ACC=-mp
+and compile:
+#make; make clean
+
+Run the program for Grid=1024x1024, Time=2.0, pebbles = 4, no. of threads=16
+#./lake 1024 4 2.0 16
+
+
+All the following execution times are for
+a grid=1024 pebbles=4, time = 2.0 sec threads=16
 
 Static Scheduling
 ==================

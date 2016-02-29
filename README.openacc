@@ -1,7 +1,16 @@
 README.txt
 ==========
+Compile
+-------
+Change ACC in Makefile to 
+ACC=-acc -ta=nvidia
+and compile:
+#make; make clean
 
-Add the following acc pragma:
+Run the program for Grid=1024x1024, Time=2.0, pebbles = 4, no. of threads=16
+#./lake 1024 4 2.0 16
+
+Added the following acc pragma:
 #pragma acc kernels loop 
 for Loop1 and Loop2
 
@@ -107,6 +116,7 @@ O1 - Reduced data transfer
 O2 - Increased work/thread
 O3 - Cached Data
 All - All optimizations
+
 Grid      time        time         time       time     
           None         O1         O1+O2       All
 ---------------------------------------------------
@@ -115,6 +125,8 @@ Grid      time        time         time       time
 512     16.069195   1.948370    0.922911    0.976209 
 1024   148.099918   3.711453    3.723380    6.265354 
 
+Performance against Simulation time:
+-----------------------------------
 Grid=1024 and 4 pebbles with varying time
 Simulation time     execution time
 -----------------------------------
