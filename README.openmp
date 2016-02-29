@@ -1,0 +1,97 @@
+README.txt
+==========
+/*
+*Single Author info: 
+*avelayu Ashitha Velayudhan 
+*/
+Execution time for a grid=1024 pebbles=4, time = 2.0 sec threads=16
+
+Static Scheduling
+==================
+Loop1  | Inner      | Outer      | serial
+---------------------------------------------
+Static | 126.486477 | 84.642627  | 293.580326 
+
+Loop2  | Inner      | Outer      | Serial 
+------------------------------------------------ 
+Static | 292.464586 | 264.829457 | 289.150349
+
+Dynamic Scheduling
+==================
+If the amount of work varies between iterations dynamic is useful.
+
+For dynamic scheduling, work can be divided into chunks and assigned to threads. If the chunk size is 
+too small then threads has to go back and get the next chunk more frequently. 
+This adds an overhead.
+
+In Loop1, the borders are assigned zero, non-boarder elements have some computation to do.
+So the amount of work varies between iterations. 
+
+In lake program, chunk is given as n/nthreads. In the below table chunk=128,
+gives good performance for loop1 for 1024 grid.
+
+For Loop2, there is no performance improvement. Since each iteration does only
+2 assignment parallelizing this loop will not improve performance greatly. 
+
+Loop1 | Inner | Dynamic Scheduling
+chunk   OpenMP          Serial on CPU(one thread)
+--------------------------------------
+4       701.424936       260.092375
+8       393.543703       250.744250
+16      259.339033       259.891423
+32      186.449960       250.422855
+64      163.492072       261.022785 
+128     158.512494       270.114112 
+
+Loop1 | Outer | Dynamic Scheduling
+chunk       OpenMP       Serial on CPU(one thread)
+----------------------------------------
+1       83.442081        258.494557
+4       78.347475        257.358744
+8       76.682323        276.454245
+16      75.827188        256.572420
+32      79.564298        256.046483
+64      76.732842        269.523179
+128     86.258366        258.885341
+
+Loop2 | Inner | Dynamic Scheduling
+chunk       OpenMP       Serial on CPU(one thread)
+---------------------------------------
+16      456.048097       255.160738
+32      387.780530       274.428426
+64      350.625402       278.806780
+128     334.109026       271.648625
+
+
+Loop2 | Outer | Dynamic Scheduling
+chunk       OpenMP  
+-------------------
+8       247.967349 
+16      251.725925    
+32      246.327607
+64      253.776362   
+128     249.875722   
+
+
+Does the scheduling type matter? Why or why not?
+yes. With static scheduling the work is divided equally among threads. With 
+dynamic scheduling, if a chunk size is not specified the default chunk size is 
+1, which is one iteration. Giving the thread one iteration and wait for all 
+threads to complete at the implicit barrier. Then grab the next work. If the
+chunk size is too small, threads spend time waiting at the barrier and the
+thread scheduling overhead is high. So with dynamic scheduling a suitable
+chunk size must be specified.
+
+Does which loop you parallelized matter? Why or why not?
+yes. Parallelizing the outer loop is benficial. Since dividing the outer loop
+gives chunks of work that not too small, it is worth parallelizing with threads
+on the outer loop. The work done per iteration of inner loop is much smaller. 
+Therefore dividing these work among threads cannot provide a performance boost
+as seen above. The thread scheduling overhead surpasses the benefits of 
+parallelizing the loop. 
+
+This program is particularly easy to parallelize. Why?
+The major work of the program is done in loop1 and loop2. Since openmp provides
+parallel directives for for loop it is easier to parallelize the program. 
+
+
